@@ -1,0 +1,58 @@
+{
+  "timestamp": "2025-10-14T23:27:18.215138",
+  "checkpoint": "checkpoints/checkpoint_8000.npz",
+  "config": {
+    "n_layers": 8,
+    "n_heads": 8,
+    "d_model": 384,
+    "d_ff": 1536,
+    "context_length": 512,
+    "vocab_size": 50257,
+    "dropout": 0.1,
+    "batch_size": 12,
+    "learning_rate": 0.0003,
+    "weight_decay": 0.1,
+    "max_iters": 30000,
+    "warmup_iters": 2000,
+    "lr_decay_iters": 30000,
+    "min_lr": 3e-05,
+    "eval_interval": 500,
+    "eval_iters": 50,
+    "save_interval": 1000,
+    "checkpoint_dir": "checkpoints",
+    "max_tokens": 2000000,
+    "train_split": 0.9,
+    "seed": 42
+  },
+  "checkpoint_iteration": 8000,
+  "checkpoint_loss": 1.6093711853027344,
+  "memory": {
+    "total_parameters": 52990464,
+    "param_memory_mb_fp32": 202.142578125,
+    "param_memory_mb_fp16": 101.0712890625,
+    "activation_memory_mb": 1687.265625,
+    "backward_memory_mb": 3374.53125,
+    "per_layer_memory_mb": 112.0
+  },
+  "throughput": {
+    "avg_latency_ms": 150.80288410186768,
+    "std_latency_ms": 2.983086237779474,
+    "p50_latency_ms": 149.92713928222656,
+    "p95_latency_ms": 156.6968560218811,
+    "p99_latency_ms": 160.46504497528076,
+    "tokens_per_second": 27161.284244624545,
+    "batches_per_second": 6.631172911285289
+  },
+  "generation": {
+    "avg_generation_latency_s": 0.5947712898254395,
+    "generation_tokens_per_second": 168.13185456438086
+  },
+  "perplexity_validation": {
+    "perplexity": 10.666673260381328,
+    "loss": 2.3671242322921753,
+    "tokens": 2048000,
+    "batches": 500,
+    "time": 77.00486493110657
+  },
+  "benchmark_time_seconds": 101.07960200309753
+}
