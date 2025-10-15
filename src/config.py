@@ -34,7 +34,8 @@ save_interval = 1000
 checkpoint_dir = "checkpoints"
 
 # Data
-max_tokens = 2_000_000  # Subset of TinyStories (~2M tokens - simpler data, use more)
+dataset_name = "finewebedu"  # Options: "tinystories", "finewebedu"
+max_tokens = 10_000_000  # FineWebEdu is more complex - use 10M tokens for good coverage
 train_split = 0.9
 
 # System

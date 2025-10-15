@@ -9,7 +9,7 @@ from pathlib import Path
 from datetime import datetime
 
 from src.model import create_model
-from src.data import TinyStoriesDataset
+from src.data import create_datasets
 from src.utils import load_checkpoint
 from src import config as cfg
 
@@ -74,12 +74,15 @@ def run_full_benchmark(checkpoint_path, config, args):
     
     # Perplexity Evaluation
     if args.include_perplexity:
+        # Load datasets
+        train_dataset, val_dataset = create_datasets(config)
+        
         for split in args.eval_splits:
             print("\n" + "=" * 70)
             print(f"Perplexity Evaluation - {split.upper()}")
             print("=" * 70)
             
-            dataset = TinyStoriesDataset(config, split=split)
+            dataset = val_dataset if split == "validation" else train_dataset
             perplexity_results = calculate_perplexity(
                 model,
                 dataset,
@@ -138,6 +141,9 @@ def main():
     parser = argparse.ArgumentParser(description="Comprehensive model benchmark")
     parser.add_argument("--checkpoint", type=str, required=True,
                        help="Path to model checkpoint")
+    parser.add_argument("--dataset", type=str, default=None,
+                       choices=["tinystories", "finewebedu"],
+                       help="Dataset to use (default: use dataset from config.py)")
     parser.add_argument("--output", type=str, default="benchmark_results.json",
                        help="Output file for results")
     parser.add_argument("--batch_size", type=int, default=8,
@@ -162,6 +168,10 @@ def main():
     
     # Load config
     config = {k: v for k, v in vars(cfg).items() if not k.startswith('_')}
+    
+    # Override dataset if specified
+    if args.dataset is not None:
+        config['dataset_name'] = args.dataset
     
     print("=" * 70)
     print("GPT MODEL BENCHMARK")

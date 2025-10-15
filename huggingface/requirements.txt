@@ -1,0 +1,16 @@
+# HuggingFace Model Publishing Requirements
+
+# Core conversion requirements
+numpy>=1.24.0
+mlx>=0.0.9
+
+# HuggingFace Hub integration
+huggingface-hub>=0.20.0
+
+# Optional: For complete model testing
+transformers>=4.35.0
+torch>=2.0.0  # or torch-cpu for CPU-only
+safetensors>=0.4.0  # For SafeTensors format (recommended)
+
+# Optional: For tokenizer
+tiktoken>=0.5.0

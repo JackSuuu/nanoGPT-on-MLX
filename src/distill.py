@@ -22,7 +22,7 @@ from .data import create_datasets
 from .utils import save_checkpoint, load_checkpoint, get_lr
 
 
-def get_teacher_logits_from_groq(client, prompt, max_tokens=100):
+def get_teacher_logits_from_groq(client, prompt, max_tokens=100, dataset_type='finewebedu'):
     """
     Get predictions from teacher model using Groq API
     
@@ -30,15 +30,22 @@ def get_teacher_logits_from_groq(client, prompt, max_tokens=100):
         client: Groq client
         prompt: Input text
         max_tokens: Maximum tokens to generate
+        dataset_type: Type of dataset ('tinystories' or 'finewebedu') to adjust system prompt
         
     Returns:
         Generated text from teacher model
     """
+    # Adjust system prompt based on dataset type
+    if dataset_type == 'tinystories':
+        system_prompt = "You are a creative storyteller. Continue the given story naturally."
+    else:  # finewebedu or other diverse content
+        system_prompt = "You are a knowledgeable assistant. Continue the given text naturally, maintaining its style and context."
+    
     try:
         response = client.chat.completions.create(
             model="openai/gpt-oss-20b",  # Using GPT-OSS-20B as teacher (20B params)
             messages=[
-                {"role": "system", "content": "You are a helpful assistant. Complete the given text naturally."},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Continue this text naturally:\n\n{prompt}"}
             ],
             max_tokens=max_tokens,
@@ -213,11 +220,13 @@ def distill(resume_from=None, groq_api_key=None):
             if cache_key in teacher_cache:
                 teacher_text = teacher_cache[cache_key]
             else:
-                # Get teacher's completion
+                # Get teacher's completion (with dataset-specific prompt)
+                dataset_type = config.get('dataset_name', 'finewebedu')
                 teacher_text = get_teacher_logits_from_groq(
                     client, 
                     prompt_text,
-                    max_tokens=config['teacher_max_tokens']
+                    max_tokens=config['teacher_max_tokens'],
+                    dataset_type=dataset_type
                 )
                 teacher_cache[cache_key] = teacher_text
                 

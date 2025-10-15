@@ -1,6 +1,6 @@
 {
-  "timestamp": "2025-10-14T23:27:18.215138",
-  "checkpoint": "checkpoints/checkpoint_8000.npz",
+  "timestamp": "2025-10-15T22:00:49.221225",
+  "checkpoint": "checkpoints/checkpoint_35000.npz",
   "config": {
     "n_layers": 8,
     "n_heads": 8,
@@ -20,12 +20,13 @@
     "eval_iters": 50,
     "save_interval": 1000,
     "checkpoint_dir": "checkpoints",
-    "max_tokens": 2000000,
+    "dataset_name": "finewebedu",
+    "max_tokens": 10000000,
     "train_split": 0.9,
     "seed": 42
   },
-  "checkpoint_iteration": 8000,
-  "checkpoint_loss": 1.6093711853027344,
+  "checkpoint_iteration": 35000,
+  "checkpoint_loss": 3.4639759063720703,
   "memory": {
     "total_parameters": 52990464,
     "param_memory_mb_fp32": 202.142578125,
@@ -35,24 +36,24 @@
     "per_layer_memory_mb": 112.0
   },
   "throughput": {
-    "avg_latency_ms": 150.80288410186768,
-    "std_latency_ms": 2.983086237779474,
-    "p50_latency_ms": 149.92713928222656,
-    "p95_latency_ms": 156.6968560218811,
-    "p99_latency_ms": 160.46504497528076,
-    "tokens_per_second": 27161.284244624545,
-    "batches_per_second": 6.631172911285289
+    "avg_latency_ms": 148.67487907409668,
+    "std_latency_ms": 1.7571701029626523,
+    "p50_latency_ms": 147.91035652160645,
+    "p95_latency_ms": 152.60236263275146,
+    "p99_latency_ms": 154.83259916305542,
+    "tokens_per_second": 27550.04763083502,
+    "batches_per_second": 6.726085847371831
   },
   "generation": {
-    "avg_generation_latency_s": 0.5947712898254395,
-    "generation_tokens_per_second": 168.13185456438086
+    "avg_generation_latency_s": 0.5986235618591309,
+    "generation_tokens_per_second": 167.04988973276025
   },
   "perplexity_validation": {
-    "perplexity": 10.666673260381328,
-    "loss": 2.3671242322921753,
-    "tokens": 2048000,
-    "batches": 500,
-    "time": 77.00486493110657
+    "perplexity": 824.4836085064873,
+    "loss": 6.714757261276245,
+    "tokens": 409600,
+    "batches": 100,
+    "time": 15.899280786514282
   },
-  "benchmark_time_seconds": 101.07960200309753
+  "benchmark_time_seconds": 32.48177623748779
 }

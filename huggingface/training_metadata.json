@@ -1,0 +1,21 @@
+{
+  "model_name": "nanogpt-mlx-384d-35k",
+  "architecture": "GPT-2",
+  "parameters": "38,794,752",
+  "training": {
+    "iterations": 35000,
+    "final_loss": 3.4639759063720703,
+    "dataset": "finewebedu",
+    "tokens_trained": 10000000,
+    "batch_size": 12,
+    "learning_rate": 0.0003,
+    "context_length": 512
+  },
+  "model_config": {
+    "d_model": 384,
+    "n_layers": 8,
+    "n_heads": 8,
+    "d_ff": 1536,
+    "vocab_size": 50257
+  }
+}

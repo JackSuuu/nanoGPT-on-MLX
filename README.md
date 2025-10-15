@@ -65,22 +65,46 @@ pip install -r requirements.txt
 
 ## Usage
 
-### 1. Test Data Loading
+### 1. Choose Your Dataset
 
-First, test the data loading to ensure TinyStories downloads correctly:
+This project supports two datasets:
 
+**TinyStories** (default for initial training):
+- Simple children's stories
+- 2M tokens, fast to load
+- Perfect for testing and small models
+
+**FineWebEdu** (recommended for distillation):
+- Diverse web content (science, tech, culture, history)
+- 10M+ tokens, richer vocabulary
+- Better for learning complex patterns
+
+To switch datasets, edit `src/config.py`:
+```python
+dataset_name = "finewebedu"  # or "tinystories"
+```
+
+### 2. Test Data Loading
+
+**For TinyStories:**
 ```bash
 python -m src.data
 ```
 
+**For FineWebEdu:**
+```bash
+python test/test_finewebedu.py
+```
+
 This will:
-
-- Download TinyStories dataset from Hugging Face (roneneldan/TinyStories)
+- Download dataset from Hugging Face (automatic, first time only)
 - Tokenize using GPT-2 tokenizer
-- Cache tokenized data in `data/` directory (2M train, 4.8M validation tokens)
-- Show sample batch with decoded TinyStories text
+- Cache tokenized data in `data/` directory
+- Show sample batch with decoded text
 
-### 2. Train the Model
+**Note:** FineWebEdu first load takes 10-20 minutes for 10M tokens. Subsequent loads are instant from cache.
+
+### 3. Train the Model
 
 **Start fresh training:**
 
@@ -118,7 +142,21 @@ python -m src.train --resume checkpoints/checkpoint_20000.npz
 
 **Expected training time:** ~6 hours for 30,000 iterations on M2 Pro (~8,000 tok/s with 53M model)
 
-### 3. Generate Text
+### 4. Knowledge Distillation (Recommended for FineWebEdu)
+
+For complex datasets like FineWebEdu, distillation from a larger teacher model works better:
+
+```bash
+# Set up Groq API key (get from https://console.groq.com)
+export GROQ_API_KEY="your_key_here"
+
+# Run distillation (uses GPT-OSS-20B as teacher)
+python -m src.distill --resume checkpoints/checkpoint_10000.npz
+```
+
+Distillation helps your 53M model learn from a 20B parameter teacher, especially useful for diverse content.
+
+### 5. Generate Text
 
 After training, generate text with your model:
 

@@ -100,18 +100,27 @@ def interactive_mode():
     # Load config
     config = {k: v for k, v in vars(cfg).items() if not k.startswith('_')}
     
-    # Find latest checkpoint
+    # Find latest checkpoint (sort by iteration number, not string)
     checkpoint_dir = Path(config['checkpoint_dir'])
     if not checkpoint_dir.exists():
         print(f"No checkpoints found in {checkpoint_dir}")
         return
     
-    checkpoints = sorted(checkpoint_dir.glob("checkpoint_*.npz"))
+    checkpoints = list(checkpoint_dir.glob("checkpoint_*.npz"))
     if not checkpoints:
         print(f"No checkpoints found in {checkpoint_dir}")
         return
     
-    latest_checkpoint = checkpoints[-1]
+    # Sort by iteration number extracted from filename
+    def get_iteration(path):
+        try:
+            # Extract number from "checkpoint_9000.npz" -> 9000
+            return int(path.stem.split('_')[1])
+        except (IndexError, ValueError):
+            return 0
+    
+    checkpoints_sorted = sorted(checkpoints, key=get_iteration)
+    latest_checkpoint = checkpoints_sorted[-1]
     
     print("=" * 70)
     print("GPT Interactive Generation")

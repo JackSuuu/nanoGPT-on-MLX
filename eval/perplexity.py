@@ -8,7 +8,7 @@ from pathlib import Path
 import time
 
 from src.model import create_model
-from src.data import TinyStoriesDataset
+from src.data import create_datasets
 from src.utils import load_checkpoint
 from src import config as cfg
 
@@ -73,6 +73,9 @@ def main():
     parser = argparse.ArgumentParser(description="Evaluate model perplexity")
     parser.add_argument("--checkpoint", type=str, required=True,
                        help="Path to model checkpoint")
+    parser.add_argument("--dataset", type=str, default=None,
+                       choices=["tinystories", "finewebedu"],
+                       help="Dataset to use (default: use dataset from config.py)")
     parser.add_argument("--split", type=str, default="validation",
                        choices=["train", "validation", "test"],
                        help="Dataset split to evaluate")
@@ -86,9 +89,18 @@ def main():
     # Load config
     config = {k: v for k, v in vars(cfg).items() if not k.startswith('_')}
     
+    # Determine which dataset to use (override if specified)
+    if args.dataset is not None:
+        config['dataset_name'] = args.dataset
+        dataset_name = args.dataset
+    else:
+        dataset_name = config.get('dataset_name', 'tinystories')
+    
     print("=" * 70)
     print("Model Perplexity Evaluation")
     print("=" * 70)
+    print(f"Dataset: {dataset_name}")
+    print(f"Split: {args.split}")
     
     # Create model
     print("\nLoading model...")
@@ -96,8 +108,9 @@ def main():
     load_checkpoint(args.checkpoint, model)
     
     # Load dataset
-    print(f"\nLoading {args.split} dataset...")
-    dataset = TinyStoriesDataset(config, split=args.split)
+    print(f"\nLoading dataset...")
+    train_dataset, val_dataset = create_datasets(config)
+    dataset = val_dataset if args.split == "validation" else train_dataset
     
     # Calculate perplexity
     print("\n" + "=" * 70)

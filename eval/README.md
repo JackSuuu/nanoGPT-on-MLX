@@ -51,20 +51,29 @@ python -m eval.perplexity \
 
 **Options:**
 - `--checkpoint`: Path to model checkpoint (required)
+- `--dataset`: Dataset to use (tinystories/finewebedu, default: from config.py)
 - `--split`: Dataset split (train/validation/test, default: validation)
 - `--batch_size`: Batch size (default: 8)
 - `--max_batches`: Maximum batches to evaluate (default: all)
+
+**Important:** Always specify `--dataset` to match your training dataset!
+```bash
+# For models trained on TinyStories
+python -m eval.perplexity --checkpoint checkpoints/checkpoint_10000.npz --dataset tinystories
+
+# For models trained on FineWebEdu
+python -m eval.perplexity --checkpoint checkpoints/checkpoint_35000.npz --dataset finewebedu
+```
 
 **Metrics:**
 - **Perplexity**: exp(loss) - lower is better
 - **Loss**: Cross-entropy loss
 - **Tokens/sec**: Evaluation throughput
 
-**Good perplexity values:**
-- Excellent: < 20
-- Good: 20-50
-- Fair: 50-100
-- Poor: > 100
+**Good perplexity values (context-dependent):**
+- TinyStories (simple stories): 20-60 is typical for small models
+- FineWebEdu (complex web content): 200-1000 is typical for small models
+- Note: Higher perplexity on FineWebEdu is expected due to more diverse/complex content
 
 ---
 
