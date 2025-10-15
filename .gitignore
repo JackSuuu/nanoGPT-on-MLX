@@ -27,6 +27,12 @@ checkpoints/
 *.swo
 *~
 
+# HuggingFace converted models (don't commit these!)
+huggingface/model.safetensors
+huggingface/*.safetensors
+huggingface/model.npz
+huggingface/pytorch_model.bin
+
 # OS
 .DS_Store
 Thumbs.db
