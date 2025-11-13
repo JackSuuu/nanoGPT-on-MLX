@@ -174,7 +174,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Upload model to HuggingFace Hub")
     parser.add_argument("--model-dir", type=str, default="huggingface",
                         help="Directory containing HuggingFace model files")
-    parser.add_argument("--repo-name", type=str, required=True,
+    parser.add_argument("--repo-name", type=str, 
                         help="Repository name (username/model-name or just model-name)")
     parser.add_argument("--private", action="store_true",
                         help="Make repository private")

@@ -1,19 +1,19 @@
 # nanoGPT on MLX
 
-A clean, efficient GPT implementation with **53 million parameters** using Apple's MLX framework, optimized for Apple Silicon (M2 Pro with 16GB memory). Successfully trained on TinyStories dataset with **working text generation**! 🎉
+A clean, efficient GPT implementation with **53 million parameters** using Apple's MLX framework, optimized for Apple Silicon (M2 Pro with 16GB memory). Successfully trained on FineWebEdu dataset with **working text generation**! 🎉
 
 ## Features
 
 - 🧠 **53M parameter transformer** (8 layers, 384d model, 8 heads)
 - 🚀 **Optimized for Apple Silicon** using MLX
-- 📚 **TinyStories dataset** (2M training tokens, 4.8M validation tokens)
+- 📚 **Multi-dataset support** (TinyStories, FineWebEdu)
 - 🎯 **Clean, readable architecture**
 - 💾 **Efficient memory usage** for 16GB M2 Pro
-- 🔥 **Fast training** (~8,000 tokens/sec on M2 Pro)
-- ✨ **Working text generation** - generates coherent TinyStories!
-- 🧑‍🏫 **Knowledge Distillation support** via Groq API (GPT-OSS-20B)
+- 🔥 **Fast training** (~27K tokens/sec on M2 Pro)
+- ✨ **Working text generation** - generates coherent stories!
+- 🧑‍🏫 **Knowledge Distillation support** via Groq API (experimental)
 - ♻️ **Resume & extend training** from any checkpoint
-- 🐛 **Fixed MLX sampling bug** - custom greedy decoding implementation
+- 🤗 **HuggingFace compatible** - Custom Pre-LN architecture
 
 ## Model Architecture
 
@@ -165,7 +165,7 @@ After training, generate text with your model:
 python -m src.generate --interactive
 
 # Or specify a checkpoint and prompt
-python -m src.generate --checkpoint checkpoints/checkpoint_7000.npz \
+python -m src.generate --checkpoint checkpoints/checkpoint_35000.npz \
                        --prompt "Once upon a time" \
                        --max_tokens 100
 ```
@@ -176,19 +176,27 @@ Once upon a time, there was a little girl named Lily. She loved to play
 outside in the sunshine. One day, she found a big rock in the ground. 
 She picked it up and showed it to her mom.
 
-"Mommy, look at this rock," she said. "It's very heavy," she replied.
+"I want to help you," said the old owl. "Let's talk."
 
-Her mom smiled and said, "That's very heavy, Lily. It's very heavy. 
-You can keep it safe."
-
-Lily felt sad and didn't...
+Fl agreed and they became good friends.
 ```
+
+**Note:** This model was trained on FineWebEdu (educational web content). The generation quality is good for coherent short stories. For specialized tasks, consider fine-tuning on domain-specific data.
+
+**Pre-trained model available on HuggingFace:** 
+- Repository: [jacksuuuu/nanogpt-mlx-53m-finewebedu](https://huggingface.co/jacksuuuu/nanogpt-mlx-53m-finewebedu)
+- Load with: `AutoModelForCausalLM.from_pretrained("jacksuuuu/nanogpt-mlx-53m-finewebedu")`
 
 **Note on sampling:** The current implementation uses **greedy decoding** (always picks highest probability token) due to a bug in `mx.random.categorical()`. This produces deterministic but coherent output. Temperature and top-k parameters are currently not functional.
 
-### 4. Knowledge Distillation (Optional)
+### 4. Knowledge Distillation (Experimental)
 
-Improve your small model's quality by learning from a larger teacher model (GPT-OSS-20B via Groq API):
+**⚠️ Note:** Knowledge distillation is an experimental feature. In our testing, standard training on high-quality datasets like FineWebEdu produces better results than distillation. Use distillation only if you have:
+- A high-quality teacher model (better than GPT-OSS-20B)
+- Domain-specific requirements
+- Clear quality metrics to validate improvements
+
+Distillation allows your small model to learn from a larger teacher model:
 
 **Setup:**
 
@@ -205,23 +213,24 @@ cp .env.example .env
 
 ```bash
 # Start distillation from your trained checkpoint
-python -m src.distill --resume checkpoints/checkpoint_10000.npz
+python -m src.distill --resume checkpoints/checkpoint_20000.npz
 ```
 
 **What distillation does:**
 
-- 📚 Uses GPT-OSS-20B (20B params) as teacher model
+- 📚 Uses GPT-OSS-20B (20B params) as teacher via Groq API
 - 🎓 Student (53M model) learns to mimic teacher's predictions
-- 🚀 **Quality improvement** with 5K-10K additional iterations (~1-2 hours)
-- 💡 More efficient than extended training alone
+- ⚖️ Combines hard loss (ground truth) and soft loss (teacher) with alpha=0.5
+- � Applies teacher guidance every 20 iterations
 
-**Important:** Only apply distillation **after** completing full base training (30,000 iterations). Distillation on a partially-trained model (< 30K iterations) won't be effective.
+**Important considerations:**
 
-**Expected results after distillation:**
+1. **Teacher quality matters:** If the teacher model produces lower-quality output than your training data, distillation can degrade performance
+2. **Data distribution:** Distillation works best when teacher and student train on similar data distributions
+3. **Validation:** Always validate generation quality before and after distillation
+4. **Alternative:** Consider continuing standard training on high-quality datasets instead
 
-- More human-like, coherent text generation
-- Better grammar and context understanding
-- Improved reasoning and factual accuracy
+**Our findings:** In testing with FineWebEdu, checkpoint 20000 (standard training, loss 0.758) significantly outperformed checkpoints with distillation applied (loss increased to 3.5-4.5). Your mileage may vary with different datasets and teacher models.
 
 ### 5. Evaluate Model Performance
 

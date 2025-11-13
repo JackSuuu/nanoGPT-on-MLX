@@ -57,17 +57,17 @@ def get_teacher_logits_from_groq(client, prompt, max_tokens=100, dataset_type='f
         return prompt  # Return original if error
 
 
-def distillation_loss_fn(model, teacher_tokens, student_x, student_y, alpha=0.7, temperature=2.0):
+def distillation_loss_fn(model, teacher_tokens, student_x, student_y, alpha=0.5, temperature=2.0):
     """
     Distillation loss combines:
-    1. Hard loss: Regular cross-entropy with true labels (30%)
-    2. Soft loss: Mimicking teacher behavior (70%)
+    1. Hard loss: Regular cross-entropy with true labels (50%)
+    2. Soft loss: Mimicking teacher behavior (50%)
     
     Args:
         model: Student model
-        teacher_tokens: Tokens from teacher completion
-        student_x: Input tokens for student
-        student_y: Target tokens for student
+        teacher_tokens: Full sequence including prompt + teacher completion (list of token IDs)
+        student_x: Input tokens for student [batch_size, seq_len]
+        student_y: Target tokens for student [batch_size, seq_len]
         alpha: Weight for hard loss (1-alpha for soft loss)
         temperature: Temperature for softening distributions
         
@@ -77,32 +77,48 @@ def distillation_loss_fn(model, teacher_tokens, student_x, student_y, alpha=0.7,
     # Get student predictions
     logits, hard_loss = model(student_x, student_y)
     
-    # For soft loss, we want student to generate similar to teacher
-    # Since we have teacher's completion, we can compute likelihood
-    if teacher_tokens is not None and len(teacher_tokens) > len(student_x[0]):
-        # Use teacher's continuation as soft targets
-        teacher_continuation = teacher_tokens[len(student_x[0]):]
-        
-        # Get student's predictions for teacher's tokens
-        # This makes student learn to predict what teacher predicted
-        if len(teacher_continuation) > 0:
-            # Truncate to match lengths
-            max_len = min(len(teacher_continuation), logits.shape[1])
-            teacher_target = mx.array(teacher_continuation[:max_len])
-            
-            # Soft loss: encourage student to predict teacher's choices
-            soft_logits = logits[0, :max_len, :] / temperature
-            soft_loss = nn.losses.cross_entropy(
-                soft_logits, 
-                teacher_target,
-                reduction='mean'
-            )
-            
-            # Combined loss
-            total_loss = alpha * hard_loss + (1 - alpha) * soft_loss
-            return total_loss, hard_loss, soft_loss
+    # For soft loss, we need to align teacher tokens with student predictions
+    # Student predicts: y[0] y[1] ... y[n-1] from input x[0] x[1] ... x[n-1]
+    # Teacher tokens: [prompt_tokens][teacher_continuation_tokens]
     
-    # If no teacher tokens, just use hard loss
+    if teacher_tokens is not None:
+        # Only use first sequence in batch for teacher matching
+        batch_size = student_x.shape[0]
+        seq_len = student_x.shape[1]
+        
+        # Teacher tokens should contain: input_prompt + completion
+        # We want student to predict the NEXT tokens like teacher did
+        teacher_len = len(teacher_tokens)
+        
+        # Create soft targets: shift teacher tokens to align with predictions
+        # Student predicts position i from input[:i], so target is teacher[i+1]
+        if teacher_len > seq_len:
+            # Use teacher's next-token predictions as soft targets
+            # student_x[0, :] are input positions 0..seq_len-1
+            # logits[0, i, :] predicts position i+1
+            # So we want teacher tokens at positions 1..seq_len
+            teacher_targets = mx.array(teacher_tokens[1:seq_len+1])  # Next tokens
+            
+            # Ensure we have matching lengths
+            pred_len = min(logits.shape[1], len(teacher_targets))
+            
+            if pred_len > 0:
+                # Get logits for first sequence only
+                soft_logits = logits[0, :pred_len, :] / temperature
+                teacher_tgt = teacher_targets[:pred_len]
+                
+                # Soft loss: encourage student to predict teacher's choices
+                soft_loss = nn.losses.cross_entropy(
+                    soft_logits, 
+                    teacher_tgt,
+                    reduction='mean'
+                )
+                
+                # Combined loss with balanced weights
+                total_loss = alpha * hard_loss + (1 - alpha) * soft_loss
+                return total_loss, hard_loss, soft_loss
+    
+    # If no valid teacher tokens, just use hard loss
     return hard_loss, hard_loss, mx.array(0.0)
 
 
@@ -132,12 +148,14 @@ def distill(resume_from=None, groq_api_key=None):
     
     # Distillation-specific settings
     distill_config = {
-        'max_iters': config.get('max_iters', 10000) + 5000,  # Add 5K distillation iterations
-        'distill_alpha': 0.7,  # 70% hard loss, 30% soft loss
+        'max_iters': config.get('max_iters', 10000) + 3000,  # Add 3K distillation iterations
+        'distill_alpha': 0.5,  # 50% hard loss, 50% soft loss (balanced)
         'distill_temperature': 2.0,
         'teacher_samples_per_iter': 1,  # Generate 1 teacher sample per iteration
         'teacher_prompt_length': 64,  # Use 64 tokens as prompt for teacher
         'teacher_max_tokens': 100,  # Teacher generates up to 100 tokens
+        'distill_learning_rate_factor': 0.1,  # Use 10% of original LR for stability
+        'gradient_clip_val': 1.0,  # Clip gradients to prevent explosion
     }
     config.update(distill_config)
     
@@ -162,10 +180,13 @@ def distill(resume_from=None, groq_api_key=None):
     model = create_model(config)
     mx.eval(model.parameters())
     
-    # Create optimizer
+    # Create optimizer with much lower learning rate for fine-tuning
     print("\n[3/4] Setting up optimizer...")
+    distill_lr = config['learning_rate'] * config['distill_learning_rate_factor']
+    print(f"    Distillation LR: {distill_lr:.2e} (base LR × {config['distill_learning_rate_factor']})")
+    
     optimizer = optim.AdamW(
-        learning_rate=config['learning_rate'] * 0.5,  # Lower LR for distillation
+        learning_rate=distill_lr,
         weight_decay=config['weight_decay']
     )
     
@@ -195,25 +216,31 @@ def distill(resume_from=None, groq_api_key=None):
                 initial=start_iteration, total=config['max_iters'])
     
     for iteration in pbar:
-        # Learning rate schedule
-        lr = float(get_lr(iteration, config)) * 0.5  # Half LR for fine-tuning
+        # Use constant low learning rate for distillation (no schedule)
+        lr = distill_lr
         optimizer.learning_rate = lr
         
         # Get batch
         x, y = train_dataset.get_batch(config['batch_size'])
         
         # Every N iterations, get teacher's prediction
-        use_teacher = (iteration % 10 == 0)  # Use teacher every 10 iterations
+        use_teacher = (iteration % 20 == 0)  # Use teacher every 20 iterations (less frequent)
         teacher_tokens = None
         
         if use_teacher:
             # Get prompt from first sequence in batch
-            prompt_tokens = x[0, :config['teacher_prompt_length']].tolist()
+            prompt_array = x[0, :config['teacher_prompt_length']]
+            prompt_tokens = prompt_array.tolist()
             
             # Decode prompt
             import tiktoken
             tokenizer = tiktoken.get_encoding("gpt2")
-            prompt_text = tokenizer.decode(prompt_tokens)
+            # Ensure it's a list of ints
+            if isinstance(prompt_tokens, list):
+                prompt_tokens_list = [int(t) for t in prompt_tokens]
+            else:
+                prompt_tokens_list = [int(prompt_tokens)]
+            prompt_text = tokenizer.decode(prompt_tokens_list)
             
             # Check cache
             cache_key = prompt_text[:100]  # Use first 100 chars as key
@@ -236,8 +263,13 @@ def distill(resume_from=None, groq_api_key=None):
             
             # Encode teacher's completion
             try:
-                teacher_tokens = tokenizer.encode(prompt_text + teacher_text)
-            except:
+                if teacher_text:
+                    full_text = prompt_text + teacher_text
+                    teacher_tokens = tokenizer.encode(full_text)
+                else:
+                    teacher_tokens = None
+            except Exception as e:
+                print(f"\nWarning: Failed to encode teacher response: {e}")
                 teacher_tokens = None
         
         # Forward and backward pass with distillation
@@ -258,6 +290,30 @@ def distill(resume_from=None, groq_api_key=None):
                 return loss
             loss_and_grad_fn = nn.value_and_grad(model, regular_loss)
             loss, grads = loss_and_grad_fn(model, x, y)
+        
+        # Gradient clipping (handle nested structure recursively)
+        if config.get('gradient_clip_val'):
+            clip_val = config['gradient_clip_val']
+            
+            def clip_gradients(grads_dict):
+                """Recursively clip gradients in nested dict"""
+                clipped = {}
+                for key, value in grads_dict.items():
+                    if isinstance(value, dict):
+                        # Recursively handle nested dicts
+                        clipped[key] = clip_gradients(value)
+                    elif value is not None and hasattr(value, 'shape'):
+                        # Clip array gradients
+                        grad_norm = mx.sqrt(mx.sum(value * value))
+                        if float(grad_norm) > clip_val:
+                            clipped[key] = value * (clip_val / (grad_norm + 1e-8))
+                        else:
+                            clipped[key] = value
+                    else:
+                        clipped[key] = value
+                return clipped
+            
+            grads = clip_gradients(grads)
         
         # Update parameters
         optimizer.update(model, grads)

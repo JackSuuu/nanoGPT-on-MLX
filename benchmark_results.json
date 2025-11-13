@@ -1,6 +1,6 @@
 {
-  "timestamp": "2025-10-15T22:00:49.221225",
-  "checkpoint": "checkpoints/checkpoint_35000.npz",
+  "timestamp": "2025-11-13T23:19:28.873484",
+  "checkpoint": "checkpoints/checkpoint_20000.npz",
   "config": {
     "n_layers": 8,
     "n_heads": 8,
@@ -25,35 +25,35 @@
     "train_split": 0.9,
     "seed": 42
   },
-  "checkpoint_iteration": 35000,
-  "checkpoint_loss": 3.4639759063720703,
+  "checkpoint_iteration": 20000,
+  "checkpoint_loss": 0.7582720518112183,
   "memory": {
     "total_parameters": 52990464,
     "param_memory_mb_fp32": 202.142578125,
     "param_memory_mb_fp16": 101.0712890625,
-    "activation_memory_mb": 1687.265625,
-    "backward_memory_mb": 3374.53125,
-    "per_layer_memory_mb": 112.0
+    "activation_memory_mb": 843.6328125,
+    "backward_memory_mb": 1687.265625,
+    "per_layer_memory_mb": 56.0
   },
   "throughput": {
-    "avg_latency_ms": 148.67487907409668,
-    "std_latency_ms": 1.7571701029626523,
-    "p50_latency_ms": 147.91035652160645,
-    "p95_latency_ms": 152.60236263275146,
-    "p99_latency_ms": 154.83259916305542,
-    "tokens_per_second": 27550.04763083502,
-    "batches_per_second": 6.726085847371831
+    "avg_latency_ms": 74.86802339553833,
+    "std_latency_ms": 1.9639872950947204,
+    "p50_latency_ms": 74.43368434906006,
+    "p95_latency_ms": 77.39554643630981,
+    "p99_latency_ms": 80.54236173629765,
+    "tokens_per_second": 27354.802586147187,
+    "batches_per_second": 13.356837200267181
   },
   "generation": {
-    "avg_generation_latency_s": 0.5986235618591309,
-    "generation_tokens_per_second": 167.04988973276025
+    "avg_generation_latency_s": 0.5886658668518067,
+    "generation_tokens_per_second": 169.87565549672755
   },
   "perplexity_validation": {
-    "perplexity": 824.4836085064873,
-    "loss": 6.714757261276245,
-    "tokens": 409600,
-    "batches": 100,
-    "time": 15.899280786514282
+    "perplexity": 690728.1920210005,
+    "loss": 13.445501670837402,
+    "tokens": 1024000,
+    "batches": 500,
+    "time": 38.682559967041016
   },
-  "benchmark_time_seconds": 32.48177623748779
+  "benchmark_time_seconds": 55.075504779815674
 }

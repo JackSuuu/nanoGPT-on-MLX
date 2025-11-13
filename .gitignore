@@ -28,10 +28,17 @@ checkpoints/
 *~
 
 # HuggingFace converted models (don't commit these!)
-huggingface/model.safetensors
+huggingface/nanogpt-custom-*/
+huggingface/nanogpt-mlx-*/
 huggingface/*.safetensors
-huggingface/model.npz
+huggingface/*.npz
 huggingface/pytorch_model.bin
+huggingface/model.safetensors
+huggingface/model.npz
+
+# HuggingFace cache
+.cache/
+*.pyc
 
 # OS
 .DS_Store

@@ -44,17 +44,10 @@ def convert_mlx_to_hf(checkpoint_path, output_dir="huggingface", model_name=None
     print(f"   Loss: {loss:.4f}")
     print(f"   Model: {config['d_model']}d, {config['n_layers']} layers, {config['n_heads']} heads")
     
-    # Create MLX model
-    print("\n🔨 Creating MLX model...")
-    model = create_model(config)
-    
-    # Load weights
-    print("📥 Loading weights...")
-    model.load_weights(str(checkpoint_path))
-    mx.eval(model.parameters())
-    
-    # Get model parameters
-    params = model.parameters()
+    # Load weights directly from checkpoint file (more reliable than loading into model)
+    print("\n📥 Loading checkpoint weights...")
+    params = mx.load(str(checkpoint_path))
+    print(f"   ✓ Loaded {len(params)} parameter tensors from checkpoint")
     
     # Create output directory
     if model_name is None:
@@ -75,7 +68,7 @@ def convert_mlx_to_hf(checkpoint_path, output_dir="huggingface", model_name=None
         "n_layer": config['n_layers'],
         "n_head": config['n_heads'],
         "n_inner": config['d_ff'],
-        "activation_function": "gelu_new",
+        "activation_function": "gelu",
         "resid_pdrop": config['dropout'],
         "embd_pdrop": config['dropout'],
         "attn_pdrop": config['dropout'],
@@ -107,17 +100,35 @@ def convert_mlx_to_hf(checkpoint_path, output_dir="huggingface", model_name=None
     print(f"\n🔄 Converting weights to HuggingFace format...")
     hf_weights = convert_weights_mlx_to_hf(params, config)
     
+    # Convert numpy arrays to PyTorch tensors
+    print(f"🔄 Converting to PyTorch format...")
+    try:
+        import torch
+        # Make tensors contiguous (required after transpose operations)
+        torch_weights = {k: torch.from_numpy(v).contiguous() for k, v in hf_weights.items()}
+        print(f"   ✓ Converted {len(torch_weights)} tensors to PyTorch")
+    except ImportError:
+        print("   ⚠️  PyTorch not installed, using numpy arrays")
+        torch_weights = hf_weights
+    
     # Save as safetensors (recommended) or pytorch_model.bin
     try:
-        from safetensors.numpy import save_file
+        from safetensors.torch import save_file
         weights_path = output_path / "model.safetensors"
-        save_file(hf_weights, weights_path)
+        save_file(torch_weights, weights_path)
         print(f"   ✓ Saved as SafeTensors: {weights_path}")
     except ImportError:
-        print("   ⚠ safetensors not installed, saving as numpy format")
-        weights_path = output_path / "model.npz"
-        np.savez(weights_path, **hf_weights)
-        print(f"   ✓ Saved as NPZ: {weights_path}")
+        print("   ⚠️  safetensors not installed, saving as PyTorch .bin")
+        try:
+            import torch
+            weights_path = output_path / "pytorch_model.bin"
+            torch.save(torch_weights, weights_path)
+            print(f"   ✓ Saved as pytorch_model.bin: {weights_path}")
+        except ImportError:
+            print("   ⚠️  PyTorch not installed, saving as NPZ")
+            weights_path = output_path / "model.npz"
+            np.savez(weights_path, **hf_weights)
+            print(f"   ✓ Saved as NPZ: {weights_path}")
     
     # Calculate total parameters
     def count_params(params_dict):
@@ -192,16 +203,20 @@ def convert_weights_mlx_to_hf(mlx_params, config):
     """
     Convert MLX parameter names to HuggingFace GPT-2 format
     
-    MLX structure:
-        embedding.weight
-        layers[i].attention.qkv_proj.weight/bias
-        layers[i].attention.out_proj.weight/bias
-        layers[i].ln1.weight/bias
-        layers[i].ffn.fc1.weight/bias
-        layers[i].ffn.fc2.weight/bias
-        layers[i].ln2.weight/bias
+    IMPORTANT: GPT-2 uses Conv1D layers which store weights transposed!
+    Conv1D weights are stored as (output_dim, input_dim) instead of (input_dim, output_dim).
+    We must transpose all linear layer weights (attention and MLP projections).
+    
+    MLX checkpoint structure (FLATTENED):
+        token_embedding.weight
+        position_embedding.weight
+        blocks.0.ln1.weight/bias
+        blocks.0.attn.qkv_proj.weight/bias
+        blocks.0.attn.out_proj.weight/bias
+        blocks.0.ln2.weight/bias
+        blocks.0.ff.fc1.weight/bias
+        blocks.0.ff.fc2.weight/bias
         ln_f.weight/bias
-        lm_head.weight (tied with embedding)
     
     HF GPT-2 structure:
         transformer.wte.weight (word embeddings)
@@ -222,66 +237,70 @@ def convert_weights_mlx_to_hf(mlx_params, config):
         return np.array(x)
     
     # Word embeddings
-    if 'embedding' in mlx_params and 'weight' in mlx_params['embedding']:
-        hf_weights['transformer.wte.weight'] = to_numpy(mlx_params['embedding']['weight'])
+    if 'token_embedding.weight' in mlx_params:
+        hf_weights['transformer.wte.weight'] = to_numpy(mlx_params['token_embedding.weight'])
+        # LM head is tied with embeddings
+        hf_weights['lm_head.weight'] = to_numpy(mlx_params['token_embedding.weight'])
     
-    # Create position embeddings (initialize with small random values)
-    n_positions = config['context_length']
-    d_model = config['d_model']
-    hf_weights['transformer.wpe.weight'] = np.random.randn(n_positions, d_model).astype(np.float32) * 0.02
+    # Position embeddings
+    if 'position_embedding.weight' in mlx_params:
+        hf_weights['transformer.wpe.weight'] = to_numpy(mlx_params['position_embedding.weight'])
     
-    # Convert each transformer layer
-    if 'layers' in mlx_params:
-        for i, layer in enumerate(mlx_params['layers']):
-            prefix = f'transformer.h.{i}'
-            
-            # Layer norm 1
-            if 'ln1' in layer:
-                hf_weights[f'{prefix}.ln_1.weight'] = to_numpy(layer['ln1']['weight'])
-                hf_weights[f'{prefix}.ln_1.bias'] = to_numpy(layer['ln1']['bias'])
-            
-            # Attention
-            if 'attention' in layer:
-                attn = layer['attention']
-                
-                # Combined QKV projection -> c_attn
-                if 'qkv_proj' in attn:
-                    hf_weights[f'{prefix}.attn.c_attn.weight'] = to_numpy(attn['qkv_proj']['weight'])
-                    hf_weights[f'{prefix}.attn.c_attn.bias'] = to_numpy(attn['qkv_proj']['bias'])
-                
-                # Output projection -> c_proj
-                if 'out_proj' in attn:
-                    hf_weights[f'{prefix}.attn.c_proj.weight'] = to_numpy(attn['out_proj']['weight'])
-                    hf_weights[f'{prefix}.attn.c_proj.bias'] = to_numpy(attn['out_proj']['bias'])
-            
-            # Layer norm 2
-            if 'ln2' in layer:
-                hf_weights[f'{prefix}.ln_2.weight'] = to_numpy(layer['ln2']['weight'])
-                hf_weights[f'{prefix}.ln_2.bias'] = to_numpy(layer['ln2']['bias'])
-            
-            # MLP/FFN
-            if 'ffn' in layer:
-                ffn = layer['ffn']
-                
-                # fc1 -> c_fc
-                if 'fc1' in ffn:
-                    hf_weights[f'{prefix}.mlp.c_fc.weight'] = to_numpy(ffn['fc1']['weight'])
-                    hf_weights[f'{prefix}.mlp.c_fc.bias'] = to_numpy(ffn['fc1']['bias'])
-                
-                # fc2 -> c_proj
-                if 'fc2' in ffn:
-                    hf_weights[f'{prefix}.mlp.c_proj.weight'] = to_numpy(ffn['fc2']['weight'])
-                    hf_weights[f'{prefix}.mlp.c_proj.bias'] = to_numpy(ffn['fc2']['bias'])
+    # Organize parameters by layer
+    n_layers = config['n_layers']
+    
+    for i in range(n_layers):
+        prefix = f'transformer.h.{i}'
+        mlx_prefix = f'blocks.{i}'
+        
+        # Layer norm 1
+        ln1_weight_key = f'{mlx_prefix}.ln1.weight'
+        ln1_bias_key = f'{mlx_prefix}.ln1.bias'
+        if ln1_weight_key in mlx_params:
+            hf_weights[f'{prefix}.ln_1.weight'] = to_numpy(mlx_params[ln1_weight_key])
+            hf_weights[f'{prefix}.ln_1.bias'] = to_numpy(mlx_params[ln1_bias_key])
+        
+        # Attention - QKV projection -> c_attn
+        # TRANSPOSE: MLX Linear (out_dim, in_dim) -> HF Conv1D (in_dim, out_dim)
+        qkv_weight_key = f'{mlx_prefix}.attn.qkv_proj.weight'
+        qkv_bias_key = f'{mlx_prefix}.attn.qkv_proj.bias'
+        if qkv_weight_key in mlx_params:
+            hf_weights[f'{prefix}.attn.c_attn.weight'] = to_numpy(mlx_params[qkv_weight_key]).T
+            hf_weights[f'{prefix}.attn.c_attn.bias'] = to_numpy(mlx_params[qkv_bias_key])
+        
+        # Attention - output projection -> c_proj
+        out_weight_key = f'{mlx_prefix}.attn.out_proj.weight'
+        out_bias_key = f'{mlx_prefix}.attn.out_proj.bias'
+        if out_weight_key in mlx_params:
+            hf_weights[f'{prefix}.attn.c_proj.weight'] = to_numpy(mlx_params[out_weight_key]).T
+            hf_weights[f'{prefix}.attn.c_proj.bias'] = to_numpy(mlx_params[out_bias_key])
+        
+        # Layer norm 2
+        ln2_weight_key = f'{mlx_prefix}.ln2.weight'
+        ln2_bias_key = f'{mlx_prefix}.ln2.bias'
+        if ln2_weight_key in mlx_params:
+            hf_weights[f'{prefix}.ln_2.weight'] = to_numpy(mlx_params[ln2_weight_key])
+            hf_weights[f'{prefix}.ln_2.bias'] = to_numpy(mlx_params[ln2_bias_key])
+        
+        # MLP - fc1 -> c_fc
+        # TRANSPOSE: MLX Linear (out_dim, in_dim) -> HF Conv1D (in_dim, out_dim)
+        fc1_weight_key = f'{mlx_prefix}.ff.fc1.weight'
+        fc1_bias_key = f'{mlx_prefix}.ff.fc1.bias'
+        if fc1_weight_key in mlx_params:
+            hf_weights[f'{prefix}.mlp.c_fc.weight'] = to_numpy(mlx_params[fc1_weight_key]).T
+            hf_weights[f'{prefix}.mlp.c_fc.bias'] = to_numpy(mlx_params[fc1_bias_key])
+        
+        # MLP - fc2 -> c_proj
+        fc2_weight_key = f'{mlx_prefix}.ff.fc2.weight'
+        fc2_bias_key = f'{mlx_prefix}.ff.fc2.bias'
+        if fc2_weight_key in mlx_params:
+            hf_weights[f'{prefix}.mlp.c_proj.weight'] = to_numpy(mlx_params[fc2_weight_key]).T
+            hf_weights[f'{prefix}.mlp.c_proj.bias'] = to_numpy(mlx_params[fc2_bias_key])
     
     # Final layer norm
-    if 'ln_f' in mlx_params:
-        hf_weights['transformer.ln_f.weight'] = to_numpy(mlx_params['ln_f']['weight'])
-        hf_weights['transformer.ln_f.bias'] = to_numpy(mlx_params['ln_f']['bias'])
-    
-    # LM head (tied with embeddings in GPT-2)
-    # HuggingFace will automatically tie these if tie_word_embeddings=True
-    if 'lm_head' in mlx_params and 'weight' in mlx_params['lm_head']:
-        hf_weights['lm_head.weight'] = to_numpy(mlx_params['lm_head']['weight'])
+    if 'ln_f.weight' in mlx_params:
+        hf_weights['transformer.ln_f.weight'] = to_numpy(mlx_params['ln_f.weight'])
+        hf_weights['transformer.ln_f.bias'] = to_numpy(mlx_params['ln_f.bias'])
     
     print(f"   ✓ Converted {len(hf_weights)} weight tensors")
     
