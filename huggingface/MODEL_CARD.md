@@ -4,45 +4,53 @@ language:
 license: mit
 tags:
 - text-generation
-- mlx
+- pytorch
 - gpt
+- transformers
 - pre-ln
+- causal-lm
 datasets:
 - HuggingFaceFW/fineweb-edu
+library_name: transformers
+pipeline_tag: text-generation
 metrics:
 - perplexity
-model-index:
-- name: nanogpt-mlx-53m-finewebedu
-  results:
-  - task:
-      type: text-generation
-      name: Text Generation
-    dataset:
-      name: FineWebEdu
-      type: HuggingFaceFW/fineweb-edu
-    metrics:
-    - type: perplexity
-      value: 690728
-      name: Validation Perplexity
-    - type: loss
-      value: 0.758
-      name: Training Loss
+widget:
+- text: "Once upon a time"
+  example_title: "Story Beginning"
+- text: "The capital of France is"
+  example_title: "Factual Question"
+- text: "In the field of machine learning,"
+  example_title: "Technical Topic"
 ---
 
-# NanoGPT MLX 53M (FineWebEdu)
+# NanoGPT 53M - Pre-LN Transformer
 
-A 53-million parameter GPT model trained on FineWebEdu using Apple's MLX framework. This model features a **Pre-LayerNorm (Pre-LN) transformer architecture** optimized for Apple Silicon.
+A 53-million parameter GPT model trained from scratch on FineWebEdu educational content. This model implements a **Pre-LayerNorm (Pre-LN) transformer architecture**, compatible with HuggingFace Transformers library.
+
+> **Model Format:** PyTorch (cross-platform compatible)  
+> **Training Framework:** Apple MLX (exported to PyTorch for universal compatibility)
 
 ## Model Details
 
-- **Parameters:** 53M (52,990,464 total)
-- **Architecture:** Pre-LN Transformer (8 layers, 384d model, 8 attention heads)
+### Architecture
+- **Model Type:** GPT (Decoder-only Transformer)
+- **Parameters:** 53M (52,990,464 total, 43M unique with weight tying)
+- **Architecture Pattern:** Pre-LayerNorm (Pre-LN)
+- **Layers:** 8 transformer blocks
+- **Hidden Size:** 384
+- **Attention Heads:** 8
+- **Feedforward Dimension:** 1536
 - **Context Length:** 512 tokens
-- **Vocabulary:** 50,257 tokens (GPT-2 tokenizer)
-- **Training Data:** FineWebEdu (10M tokens, educational web content)
-- **Training Framework:** MLX (Apple Silicon optimized)
-- **Hardware:** M2 Pro with 16GB memory
-- **Checkpoint:** 35000 (includes knowledge distillation from GPT-OSS-20B)
+- **Vocabulary Size:** 50,257 (GPT-2 tokenizer)
+
+### Training
+- **Framework:** Apple MLX (training), PyTorch (export)
+- **Dataset:** FineWebEdu - 10M tokens of educational web content
+- **Training Hardware:** Apple M2 Pro (16GB unified memory)
+- **Checkpoint:** 35000 iterations
+- **Training Method:** Base pretraining (20K iters) + Knowledge Distillation (15K iters)
+- **Teacher Model:** GPT-OSS-20B (via Groq API)
 
 ### Architecture Highlights
 
@@ -74,22 +82,20 @@ Pre-LN provides better training stability and is used in modern transformers (GP
 
 ### Performance Benchmarks
 
-Training and inference on M2 Pro (measured at checkpoint 20000):
+Measured on Apple M2 Pro (16GB unified memory):
 
-```
-📊 Model Size:      53.0M parameters
-                   202.1 MB (fp32), 101.1 MB (fp16)
+| Metric | Value |
+|--------|-------|
+| **Model Size** | 53.0M parameters |
+| **Memory (fp32)** | 202.1 MB |
+| **Memory (fp16)** | 101.1 MB |
+| **Training Throughput** | 27,355 tokens/sec |
+| **Batch Processing** | 13.36 batches/sec (batch=4, seq=512) |
+| **Inference Speed** | 169.9 tokens/sec |
+| **Generation Latency** | ~0.59s per 100 tokens |
+| **Activation Memory** | 843 MB (batch=4, seq=512) |
 
-⚡ Training:        27,355 tokens/sec (forward pass)
-                   13.36 batches/sec (batch=4, seq=512)
-
-🎯 Inference:       169.9 tokens/sec
-                   ~0.59s per 100 tokens
-
-💾 Memory:          843 MB activations (batch=4, seq=512)
-```
-
-**Note:** This checkpoint (35000) includes additional training with knowledge distillation.
+> **Note:** Benchmarks measured at checkpoint 20000. This release (checkpoint 35000) includes additional knowledge distillation training.
 
 ## Usage
 
