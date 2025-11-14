@@ -87,16 +87,19 @@ dataset_name = "finewebedu"  # or "tinystories"
 ### 2. Test Data Loading
 
 **For TinyStories:**
+
 ```bash
 python -m src.data
 ```
 
 **For FineWebEdu:**
+
 ```bash
 python test/test_finewebedu.py
 ```
 
 This will:
+
 - Download dataset from Hugging Face (automatic, first time only)
 - Tokenize using GPT-2 tokenizer
 - Cache tokenized data in `data/` directory
@@ -171,6 +174,7 @@ python -m src.generate --checkpoint checkpoints/checkpoint_35000.npz \
 ```
 
 **Example output (checkpoint 7000, loss 1.66):**
+
 ```
 Once upon a time, there was a little girl named Lily. She loved to play 
 outside in the sunshine. One day, she found a big rock in the ground. 
@@ -184,6 +188,7 @@ Fl agreed and they became good friends.
 **Note:** This model was trained on FineWebEdu (educational web content). The generation quality is good for coherent short stories. For specialized tasks, consider fine-tuning on domain-specific data.
 
 **Pre-trained model available on HuggingFace:** 
+
 - Repository: [jacksuuuu/nanogpt-mlx-53m-finewebedu](https://huggingface.co/jacksuuuu/nanogpt-mlx-53m-finewebedu)
 - Load with: `AutoModelForCausalLM.from_pretrained("jacksuuuu/nanogpt-mlx-53m-finewebedu")`
 
@@ -192,6 +197,7 @@ Fl agreed and they became good friends.
 ### 4. Knowledge Distillation (Experimental)
 
 **⚠️ Note:** Knowledge distillation is an experimental feature. In our testing, standard training on high-quality datasets like FineWebEdu produces better results than distillation. Use distillation only if you have:
+
 - A high-quality teacher model (better than GPT-OSS-20B)
 - Domain-specific requirements
 - Clear quality metrics to validate improvements
@@ -221,7 +227,7 @@ python -m src.distill --resume checkpoints/checkpoint_20000.npz
 - 📚 Uses GPT-OSS-20B (20B params) as teacher via Groq API
 - 🎓 Student (53M model) learns to mimic teacher's predictions
 - ⚖️ Combines hard loss (ground truth) and soft loss (teacher) with alpha=0.5
-- � Applies teacher guidance every 20 iterations
+- 🧑‍🏫 Applies teacher guidance every 20 iterations
 
 **Important considerations:**
 
@@ -303,11 +309,13 @@ python -m src.train --resume checkpoints/checkpoint_5000.npz
 Train for more iterations after completion:
 
 **Step 1:** Update `max_iters` in `src/config.py`
+
 ```python
 max_iters = 15000  # Was 10000, now train 5000 more
 ```
 
 **Step 2:** Resume from final checkpoint
+
 ```bash
 python -m src.train --resume checkpoints/checkpoint_10000.npz
 # Trains from 10001 → 15000
@@ -343,6 +351,7 @@ For 16GB M2 Pro:
 - **Dataset subset** - Using ~1M tokens (adjust `max_tokens` in config)
 
 If you encounter memory issues:
+
 - Reduce `batch_size` to 8 or 4
 - Reduce `context_length` to 256
 - Use smaller model (reduce `d_model` and `n_layers`)
@@ -406,7 +415,7 @@ After training milestones:
 
 ## Troubleshooting
 
-### � MLX Sampling Bug (FIXED)
+### MLX Sampling Bug (FIXED)
 
 **Issue:** `mx.random.categorical()` in MLX doesn't respect probability distributions - it samples uniformly instead!
 
@@ -504,28 +513,6 @@ python -m src.data
 rm checkpoints/*.npz
 python -m src.train
 ```
-
-## Development Journey
-
-This project went through several iterations to achieve working text generation:
-
-### Initial Attempts (Failed)
-
-1. **128M parameter model** - Too slow (342 hours for 10K iterations)
-2. **22M parameter model + WikiText-103** - Too small for complex dataset
-3. **22M model + TinyStories** - Loss plateaued at 3.4, still gibberish
-
-### The Breakthrough
-
-**Discovery:** Model had good loss (1.66) but still generated gibberish! Investigation revealed:
-
-- Model logits were **perfect** (92% probability for correct tokens)
-- `mx.random.categorical()` was **broken** - sampling uniformly instead of by probability
-- This was causing random token selection despite correct predictions
-
-**Solution:** Replaced `mx.random.categorical()` with greedy decoding (`mx.argmax()`)
-
-**Result:** 🎉 **Working text generation!** Model now produces coherent TinyStories.
 
 ### Lessons Learned
 
