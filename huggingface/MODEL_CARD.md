@@ -26,10 +26,11 @@ widget:
 
 # NanoGPT 53M - Pre-LN Transformer
 
-A 53-million parameter GPT model trained from scratch on FineWebEdu educational content. This model implements a **Pre-LayerNorm (Pre-LN) transformer architecture**, compatible with HuggingFace Transformers library.
+A 53-million parameter GPT model trained from scratch on 10M tokens of FineWebEdu educational content. This model implements a **Pre-LayerNorm (Pre-LN) transformer architecture** and serves as a demonstration of efficient training on Apple Silicon using the MLX framework.
 
 > **Model Format:** PyTorch (cross-platform compatible)  
-> **Training Framework:** Apple MLX (exported to PyTorch for universal compatibility)
+> **Training Framework:** Apple MLX (exported to PyTorch for universal compatibility)  
+> **Best for:** Educational demonstrations, research, and fine-tuning on specific domains
 
 ## Model Details
 
@@ -48,9 +49,8 @@ A 53-million parameter GPT model trained from scratch on FineWebEdu educational 
 - **Framework:** Apple MLX (training), PyTorch (export)
 - **Dataset:** FineWebEdu - 10M tokens of educational web content
 - **Training Hardware:** Apple M2 Pro (16GB unified memory)
-- **Checkpoint:** 35000 iterations
-- **Training Method:** Base pretraining (20K iters) + Knowledge Distillation (15K iters)
-- **Teacher Model:** GPT-OSS-20B (via Groq API)
+- **Checkpoint:** 20000 iterations
+- **Training Method:** Base pretraining from scratch
 
 ### Architecture Highlights
 
@@ -71,14 +71,15 @@ Pre-LN provides better training stability and is used in modern transformers (GP
 ## Training Details
 
 - **Dataset:** FineWebEdu (diverse educational web content)
-- **Training Tokens:** 10M
-- **Base Training:** 20,000 iterations (loss 0.758)
-- **Knowledge Distillation:** 15,000 additional iterations with GPT-OSS-20B as teacher
-- **Total Iterations:** 35,000
-- **Batch Size:** 12
-- **Learning Rate:** 3e-4 with cosine decay (base), 3e-5 (distillation)
-- **Final Training Loss:** 3.46
-- **Distillation Method:** 50% hard loss (ground truth) + 50% soft loss (teacher)
+- **Training Tokens:** ~10.2M tokens from educational web pages
+- **Total Iterations:** 20,000
+- **Batch Size:** 12 sequences/batch
+- **Sequence Length:** 512 tokens
+- **Learning Rate:** 3e-4 with cosine decay schedule
+- **Optimizer:** AdamW (β1=0.9, β2=0.95, weight_decay=0.1)
+- **Final Training Loss:** 0.7583
+- **Training Time:** ~4 hours on Apple M2 Pro
+- **Gradient Accumulation:** None (direct updates)
 
 ### Performance Benchmarks
 
@@ -95,7 +96,7 @@ Measured on Apple M2 Pro (16GB unified memory):
 | **Generation Latency** | ~0.59s per 100 tokens |
 | **Activation Memory** | 843 MB (batch=4, seq=512) |
 
-> **Note:** Benchmarks measured at checkpoint 20000. This release (checkpoint 35000) includes additional knowledge distillation training.
+> **Note:** All benchmarks measured at checkpoint 20000 (this release).
 
 ## Usage
 
@@ -105,9 +106,9 @@ Measured on Apple M2 Pro (16GB unified memory):
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 # Load model and tokenizer (requires trust_remote_code for custom architecture)
-tokenizer = AutoTokenizer.from_pretrained("jacksuuuu/nanogpt-mlx-53m-finewebedu")
+tokenizer = AutoTokenizer.from_pretrained("jacksuuuu/tinystories")
 model = AutoModelForCausalLM.from_pretrained(
-    "jacksuuuu/nanogpt-mlx-53m-finewebedu",
+    "jacksuuuu/tinystories",
     trust_remote_code=True
 )
 
@@ -131,14 +132,18 @@ print(text)
 
 **Prompt:** "Once upon a time"
 
-**Generated (Checkpoint 35000 with distillation):**
+**Generated:**
 ```
-Once upon a time: "the)." as in KDE, set by an article of the U and 
-updated to the existing of a network. For requirements of the application 
-to an individual to the data above above above above...
+Once upon a time, the boy named Lily and his dog named Max went for a walk. 
+They ran and ran, but they kept each and got very tired. Suddenly the way, 
+Max saw something shiny on the ground. He pointed the shiny to his owner and 
+explained, "What does this?"
+
+Max meowed and said, "I don't sign, Max. The sign is too small and it's 
+important to learn."
 ```
 
-**Note:** This checkpoint shows characteristics of knowledge distillation training. The model has learned broader patterns from the teacher model (GPT-OSS-20B), though generation quality varies. For more coherent story generation, consider fine-tuning on your specific use case.
+**Note:** This model generates coherent short stories and educational content. While grammatically imperfect due to its small size (53M params), it demonstrates good narrative flow and vocabulary learned from FineWebEdu dataset.
 
 ## Model Architecture
 
@@ -189,11 +194,13 @@ NanoGPTLMHeadModel(
 
 ## Limitations
 
-- **Context length:** Limited to 512 tokens
-- **Domain:** Trained on educational web content (FineWebEdu)
-- **Size:** 53M parameters is relatively small compared to modern LLMs
-- **Generation:** Best for short-form content (stories, paragraphs)
-- **No instruction tuning:** This is a base language model, not instruction-tuned
+- **Context length:** Limited to 512 tokens (can't process longer documents)
+- **Domain:** Trained primarily on educational web content (FineWebEdu)
+- **Model size:** 53M parameters - significantly smaller than modern LLMs (1B+)
+- **Generation quality:** Produces coherent narratives but with occasional grammatical errors
+- **Factual accuracy:** Limited by small model size and training data
+- **No instruction tuning:** Base language model - cannot follow instructions or engage in dialogue
+- **Training data:** Only 10M tokens (modern models use trillions)
 
 ## Intended Use
 
@@ -225,7 +232,7 @@ If you use this model, please cite:
   author = {JackSu},
   title = {NanoGPT MLX: 53M Parameter Pre-LN Transformer},
   year = {2025},
-  url = {https://huggingface.co/jacksuuuu/nanogpt-mlx-53m-finewebedu}
+  url = {https://huggingface.co/jacksuuuu/tinystories}
 }
 ```
 

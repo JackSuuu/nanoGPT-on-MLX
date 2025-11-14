@@ -4,17 +4,17 @@ Quick test to verify the model loads from HuggingFace
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
 print("🔄 Loading model from HuggingFace...")
-print("   Repository: jacksuuuu/nanogpt-mlx-53m-finewebedu")
+print("   Repository: jacksuuuu/tinystories")
 
 try:
     # Load tokenizer
     print("\n📥 Loading tokenizer...")
-    tokenizer = AutoTokenizer.from_pretrained("jacksuuuu/nanogpt-mlx-53m-finewebedu")
+    tokenizer = AutoTokenizer.from_pretrained("jacksuuuu/tinystories")
     print("   ✓ Tokenizer loaded successfully")
     
     # Load model
     print("\n📥 Loading model...")
-    model = AutoModelForCausalLM.from_pretrained("jacksuuuu/nanogpt-mlx-53m-finewebedu")
+    model = AutoModelForCausalLM.from_pretrained("jacksuuuu/tinystories", trust_remote_code=True)
     print("   ✓ Model loaded successfully")
     
     # Check model size
@@ -23,7 +23,7 @@ try:
     
     # Generate text
     print("\n🎨 Generating text...")
-    prompt = "Once upon a time in a small village"
+    prompt = "Once upon a time"
     inputs = tokenizer(prompt, return_tensors="pt")
     
     outputs = model.generate(

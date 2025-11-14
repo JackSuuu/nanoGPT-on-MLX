@@ -13,6 +13,15 @@ class NanoGPTConfig(PretrainedConfig):
     """Configuration for NanoGPT model"""
     model_type = "nanogpt"
     
+    # Add attribute mapping for HuggingFace compatibility
+    attribute_map = {
+        "hidden_size": "n_embd",
+        "num_hidden_layers": "n_layer",
+        "num_attention_heads": "n_head",
+        "intermediate_size": "n_inner",
+        "max_position_embeddings": "n_positions",
+    }
+    
     def __init__(
         self,
         vocab_size=50257,
@@ -44,6 +53,13 @@ class NanoGPTConfig(PretrainedConfig):
         self.attn_pdrop = attn_pdrop
         self.layer_norm_epsilon = layer_norm_epsilon
         self.initializer_range = initializer_range
+        
+        # Add standard HuggingFace attributes for compatibility
+        self.hidden_size = n_embd
+        self.num_hidden_layers = n_layer
+        self.num_attention_heads = n_head
+        self.intermediate_size = n_inner
+        self.max_position_embeddings = n_positions
 
 
 class NanoGPTAttention(nn.Module):
