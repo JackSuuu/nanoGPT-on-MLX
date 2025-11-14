@@ -1,6 +1,6 @@
 # nanoGPT on MLX
 
-A clean, efficient GPT implementation with **53 million parameters** using Apple's MLX framework, optimized for Apple Silicon (M2 Pro with 16GB memory). Successfully trained on FineWebEdu dataset with **working text generation**! 🎉
+A clean, efficient GPT implementation with **53 million parameters** using Apple's MLX framework, optimized for Apple Silicon (M2 Pro with 16GB memory). Successfully trained on TinyStories dataset with **working text generation**! 🎉
 
 ## Features
 
@@ -173,24 +173,27 @@ python -m src.generate --checkpoint checkpoints/checkpoint_35000.npz \
                        --max_tokens 100
 ```
 
-**Example output (checkpoint 7000, loss 1.66):**
+**Example output (checkpoint 20000, loss 0.758):**
 
 ```
-Once upon a time, there was a little girl named Lily. She loved to play 
-outside in the sunshine. One day, she found a big rock in the ground. 
-She picked it up and showed it to her mom.
+Once upon a time, there was a brave boy named Tim. He loved to explore 
+the sea and find new things. One day, he found a smooth rock and decided 
+to dive in it.
 
-"I want to help you," said the old owl. "Let's talk."
+As he was hopping around, he saw something shiny in the water. It was a 
+big fish! Tim was so excited. He wanted to dive in and dive in and touch 
+the fish. But when he tried to get away, he couldn't!
 
-Fl agreed and they became good friends.
+Tim tried to dive deeper into the water.
 ```
 
-**Note:** This model was trained on FineWebEdu (educational web content). The generation quality is good for coherent short stories. For specialized tasks, consider fine-tuning on domain-specific data.
+**Note:** This model (checkpoint 20000) was trained on FineWebEdu (educational web content) for 20,000 iterations with a final loss of 0.758. The generation quality is good for coherent short stories. For specialized tasks, consider fine-tuning on domain-specific data.
 
 **Pre-trained model available on HuggingFace:** 
 
-- Repository: [jacksuuuu/nanogpt-mlx-53m-finewebedu](https://huggingface.co/jacksuuuu/nanogpt-mlx-53m-finewebedu)
-- Load with: `AutoModelForCausalLM.from_pretrained("jacksuuuu/nanogpt-mlx-53m-finewebedu")`
+- Repository: [jacksuuuu/tinystories](https://huggingface.co/jacksuuuu/tinystories)
+- Checkpoint: 20000 iterations (loss: 0.758)
+- Load with: `AutoModelForCausalLM.from_pretrained("jacksuuuu/tinystories", trust_remote_code=True)`
 
 **Note on sampling:** The current implementation uses **greedy decoding** (always picks highest probability token) due to a bug in `mx.random.categorical()`. This produces deterministic but coherent output. Temperature and top-k parameters are currently not functional.
 
@@ -236,7 +239,7 @@ python -m src.distill --resume checkpoints/checkpoint_20000.npz
 3. **Validation:** Always validate generation quality before and after distillation
 4. **Alternative:** Consider continuing standard training on high-quality datasets instead
 
-**Our findings:** In testing with FineWebEdu, checkpoint 20000 (standard training, loss 0.758) significantly outperformed checkpoints with distillation applied (loss increased to 3.5-4.5). Your mileage may vary with different datasets and teacher models.
+**Our findings:** In testing with FineWebEdu, checkpoint 20000 (standard training, loss 0.758) significantly outperformed checkpoints with distillation applied (loss increased to 3.5-4.5). The deployed model at [jacksuuuu/tinystories](https://huggingface.co/jacksuuuu/tinystories) is from checkpoint 20000 without distillation. Your mileage may vary with different datasets and teacher models.
 
 ### 5. Evaluate Model Performance
 
@@ -406,12 +409,12 @@ After training milestones:
 - Generation: Coherent TinyStories with proper grammar and story structure
 - Quality: "Once upon a time, there was a little girl named Lily..."
 
-**30,000 iterations (~6 hours):**
+**20,000 iterations (~4 hours):**
 
-- Training loss: ~1.2-1.3
-- Validation loss: ~2.0-2.1
+- Training loss: ~0.76
+- Validation loss: ~0.80-0.85
 - Generation: High-quality coherent stories with good narrative flow
-- Ready for distillation to further improve quality
+- Available on HuggingFace: [jacksuuuu/tinystories](https://huggingface.co/jacksuuuu/tinystories)
 
 ## Troubleshooting
 
